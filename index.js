@@ -1,57 +1,55 @@
-import express from 'express'
-import cors from 'cors'
-import { Low } from 'lowdb'
-import { JSONFile } from 'lowdb/node'
+const express = require('express');
+const cors = require('cors');
+const app = express();
+const port = process.env.PORT || 3000;
 
-const app = express()
-const port = process.env.PORT || 3000
+app.use(cors());
+app.use(express.json());
 
-app.use(cors())
-app.use(express.json())
+let trafficLights = [];
 
-const adapter = new JSONFile('db.json')
-const db = new Low(adapter)
-await db.read()
+// GET: todos os semáforos
+app.get('/api/traffic-lights', (req, res) => {
+  res.json(trafficLights);
+});
 
-db.data ||= { trafficLights: [], groups: {} }
+// POST: adiciona semáforos em lote
+app.post('/api/traffic-lights', (req, res) => {
+  const newLights = req.body;
+  trafficLights = [...trafficLights, ...newLights];
+  res.status(201).json({ message: 'Semáforos adicionados com sucesso' });
+});
 
-function getGroupLights(group) {
-  return db.data.trafficLights.filter(l => l.group === group)
-}
+// POST: reseta o grupo (primeiro semáforo fica verde, os outros vermelhos)
+app.post('/api/reset-group/:group', (req, res) => {
+  const group = parseInt(req.params.group);
+  const groupLights = trafficLights.filter(t => t.group === group);
 
-function resetGroup(group) {
-  const lights = getGroupLights(group)
-  lights.forEach(l => l.status = 'red')
-  const first = lights.find(l => l.order === 1)
-  if (first) first.status = 'green'
-}
+  if (groupLights.length === 0) {
+    return res.status(404).json({ error: 'Grupo não encontrado' });
+  }
 
-// Listar todos
-app.get('/api/traffic-lights', async (req, res) => {
-  await db.read()
-  res.json(db.data.trafficLights)
-})
+  groupLights.forEach(t => {
+    t.status = t.order === 1 ? 'green' : 'red';
+  });
 
-// Adicionar grupo
-app.post('/api/traffic-lights/group', async (req, res) => {
-  const { group, lights, greenTime } = req.body
+  res.json({ message: `Grupo ${group} resetado com sucesso` });
+});
 
-  db.data.trafficLights = db.data.trafficLights.filter(l => l.group !== group)
-  db.data.trafficLights.push(...lights)
-  db.data.groups[group] = { greenTime }
+// DELETE: remove todos os semáforos de um grupo
+app.delete('/api/delete-group/:group', (req, res) => {
+  const group = parseInt(req.params.group);
+  const initialLength = trafficLights.length;
 
-  await db.write()
-  res.json({ ok: true })
-})
+  trafficLights = trafficLights.filter(t => t.group !== group);
 
-// Resetar grupo
-app.post('/api/reset-group/:group', async (req, res) => {
-  const group = parseInt(req.params.group)
-  resetGroup(group)
-  await db.write()
-  res.json({ ok: true })
-})
+  if (trafficLights.length === initialLength) {
+    return res.status(404).json({ error: 'Grupo não encontrado' });
+  }
+
+  res.json({ message: `Grupo ${group} excluído com sucesso` });
+});
 
 app.listen(port, () => {
-  console.log(`Servidor rodando em http://localhost:${port}`)
-})
+  console.log(`Servidor rodando em http://localhost:${port}`);
+});
