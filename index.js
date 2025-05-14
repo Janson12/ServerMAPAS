@@ -8,19 +8,19 @@ app.use(express.json());
 
 let trafficLights = [];
 
-// GET: todos os semáforos
+// GET: lista todos os semáforos
 app.get('/api/traffic-lights', (req, res) => {
   res.json(trafficLights);
 });
 
-// POST: adiciona semáforos em lote
+// POST: adiciona vários semáforos de uma vez
 app.post('/api/traffic-lights', (req, res) => {
   const newLights = req.body;
   trafficLights = [...trafficLights, ...newLights];
   res.status(201).json({ message: 'Semáforos adicionados com sucesso' });
 });
 
-// POST: reseta o grupo (primeiro semáforo fica verde, os outros vermelhos)
+// POST: reseta um grupo (ordem 1 = verde, resto = vermelho)
 app.post('/api/reset-group/:group', (req, res) => {
   const group = parseInt(req.params.group);
   const groupLights = trafficLights.filter(t => t.group === group);
